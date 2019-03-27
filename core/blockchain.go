@@ -3,19 +3,21 @@ package core
 import (
 	"github.com/thiepwong/smartchain/core/params"
 	"github.com/thiepwong/smartchain/core/types"
-	"github.com/thiepwong/smartchain/smartdb/leveldb"
+	"github.com/thiepwong/smartchain/smartdb/mongodb"
 )
 
+//BlockChain struct
 type BlockChain struct {
 	chainConfig  params.ChainConfig
-	db           leveldb.Database
+	db           *mongodb.Database
 	genesisBlock *types.Block
 }
 
-func NewBlockChain(db *leveldb.Database, chainConfig params.ChainConfig, genesis *types.Block) (*BlockChain, error) {
+//NewBlockChain func to create a new blockchain
+func NewBlockChain(db *mongodb.Database, chainConfig params.ChainConfig, genesis *types.Block) (*BlockChain, error) {
 	bc := &BlockChain{
 		chainConfig:  chainConfig,
-		db:           *db,
+		db:           db,
 		genesisBlock: genesis,
 	}
 
@@ -24,10 +26,10 @@ func NewBlockChain(db *leveldb.Database, chainConfig params.ChainConfig, genesis
 	return bc, nil
 }
 
-func (bc *BlockChain) addBlock(block *types.Block) {
+func (bc *BlockChain) addBlock(block *types.Block) error {
 
 	// Validate the block
-	bc.db.Save("so1", types.Bytes(block))
+	return bc.db.Insert("mainchain", block)
 }
 
 // func (bc *BlockChain) GetBlockByNumber(number uint64) *types.Block {
@@ -39,23 +41,22 @@ func (bc *BlockChain) addBlock(block *types.Block) {
 // 	return bc.GetBlock(hash, number)
 // }
 
-func (bc *BlockChain) PullChain() ([]byte, error) {
-	return bc.db.Read("so1")
-}
+// func (bc *BlockChain) PullChain() ([]byte, error) {
+// 	return bc.db.Read("so1")
+// }
 
-func GetLocalChain() (*BlockChain, error) {
-	db := &leveldb.Database{}
-	db.SetName("local-data")
-	var err error
-	db, err = db.Open()
-	if err != nil {
-		return nil, err
-	}
-	bc := &BlockChain{db: *db}
-	return bc, nil
-}
+// func GetLocalChain() (*BlockChain, error) {
+// 	db := &mongodb.Database{}
 
-func GetlastBlock(bc *BlockChain) ([]byte, error) {
-	b, e := bc.db.Read("so1")
-	return b, e
-}
+// 	db, err = db.Open()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	bc := &BlockChain{db: *db}
+// 	return bc, nil
+// }
+
+// func GetlastBlock(bc *BlockChain) ([]byte, error) {
+// 	b, e := bc.db.Read("so1")
+// 	return b, e
+// }

@@ -56,26 +56,27 @@ var headerSize = float64(reflect.TypeOf(Header{}).Size())
 
 // Header represents a block header in smartchain
 type Header struct {
-	Version    int        `json:"version"`
-	ParentHash Hash       `json:"parentHash"`
-	MerkleHash Hash       `json:"merkleHash"`
-	TxHash     Hash       `json:"txHash"`
-	Height     *big.Int   `json:"height"`
-	Miner      Address    `json:"miner"`
-	Time       *big.Int   `json:"timestamp"`
-	Difficulty *big.Int   `json:"difficulty"`
-	Nonce      BlockNonce `json:"nonce"`
-	Extra      []byte     `json:"extra"`
+	Version    int        `bson: "versions"	json:"version"`
+	ParentHash Hash       `bson: "parenthash"	json:"parentHash"`
+	MerkleHash Hash       `bson:"merklehash"	json:"merkleHash"`
+	TxHash     Hash       `bson:"txhash"	json:"txHash"`
+	Height     *big.Int   `bson:"height"	json:"height"`
+	Miner      Address    `bson:"address"	json:"miner"`
+	Time       *big.Int   `bson:"time"	json:"timestamp"`
+	Difficulty *big.Int   `bson:"difficulty"	json:"difficulty"`
+	Nonce      BlockNonce `bson:"nonce"	json:"nonce"`
+	Extra      []byte     `bson :"extra"	json:"extra"`
 }
 
 //Block structure of chain
 type Block struct {
-	Header       *Header
-	Transactions Transactions
-	Hash         Hash    //Hash of Header
-	Size         float64 // Size of header
-	ReceiverAt   *big.Int
-	ReceiverFrom interface{}
+	_id          *big.Int     `bson: "_id" json:"id"`
+	Header       *Header      `bson:"header" json:"header"`
+	Transactions Transactions `bson:"transactions"	json:"transactions"`
+	Hash         Hash         `bson: "hash" json:"hash"` //Hash of Header
+	Size         float64      `bson:"size" json:"size"`  // Size of header
+	ReceiverAt   *big.Int     `bson:"received_at" json:"received_at"`
+	ReceiverFrom interface{}  `bson:"received_from"	json:"received_from"`
 }
 
 func (h *Header) Size() float64 {
@@ -113,6 +114,7 @@ func NewBlock(header *Header, txs Transactions) *Block {
 		b.ReceiverAt = big.NewInt(time.Now().Unix())
 		copy(b.Transactions, txs)
 	}
+	b._id = b.Header.Height
 	b.Hash = b.Header.Hash()
 	b.Size = b.Header.Size()
 	return b
