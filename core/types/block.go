@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
@@ -73,7 +74,7 @@ type Block struct {
 	Transactions Transactions
 	Hash         Hash    //Hash of Header
 	Size         float64 // Size of header
-	ReceiverAt   int
+	ReceiverAt   *big.Int
 	ReceiverFrom interface{}
 }
 
@@ -109,7 +110,7 @@ func NewBlock(header *Header, txs Transactions) *Block {
 		b.Transactions = make(Transactions, len(txs))
 
 		fmt.Println()
-		b.ReceiverAt = 345345
+		b.ReceiverAt = big.NewInt(time.Now().Unix())
 		copy(b.Transactions, txs)
 	}
 	b.Hash = b.Header.Hash()
