@@ -45,18 +45,28 @@ func (bc *BlockChain) addBlock(block *types.Block) error {
 // 	return bc.db.Read("so1")
 // }
 
-// func GetLocalChain() (*BlockChain, error) {
-// 	db := &mongodb.Database{}
+func GetLocalChain(db *mongodb.Database) (*BlockChain, error) {
+	//	db := &mongodb.Database{}
 
-// 	db, err = db.Open()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	bc := &BlockChain{db: *db}
-// 	return bc, nil
-// }
+	//	ist := db.Load()
+
+	bc := &BlockChain{db: db}
+	return bc, nil
+}
 
 // func GetlastBlock(bc *BlockChain) ([]byte, error) {
 // 	b, e := bc.db.Read("so1")
 // 	return b, e
 // }
+
+func (bc *BlockChain) GetLastBlock() *types.Block {
+
+	return bc.db.Load()
+
+}
+
+func GetLastBlock(db *mongodb.Database) *types.Block {
+
+	return db.Load()
+
+}

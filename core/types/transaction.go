@@ -9,26 +9,26 @@ type Transactions []*Transaction
 
 //Transaction  type
 type Transaction struct {
-	hash []byte
-	size int
-	from Address
-	data TxData
+	Hash []byte `json:"hash" bson:"hash"`
+	Size int    `json:"size"`
+	From []byte `json:"from"`
+	Data TxData `json:"data"`
 }
 
 type TxData struct {
 	//is register new or update data
-	Mode    int    `json: "mode"`
-	SmartID uint64 `json: "smartid"`
-	User    []byte `json: "user"`
-	Payload []byte `json: "payload"`
-	P       []byte `json: "public"`
+	Mode    int    `json:"mode"`
+	SmartID uint64 `json:"smartid"`
+	User    []byte `json:"user"`
+	Payload []byte `json:"payload"`
+	P       []byte `json:"public"`
 }
 
 func NewTransaction(data *TxData) (*Transaction, error) {
 	_size := unsafe.Sizeof(data)
 	transaction := &Transaction{
-		size: int(_size),
-		data: *data,
+		Size: int(_size),
+		Data: *data,
 	}
 
 	return transaction, nil

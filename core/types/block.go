@@ -5,9 +5,10 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"math/big"
+	"os"
 	"reflect"
 	"time"
+	"unsafe"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
@@ -22,7 +23,7 @@ const (
 )
 
 //BlockNonce is 64 bit hash
-type BlockNonce [NonceLength]byte
+type BlockNonce []byte
 
 //Hash is encode of an object
 type Hash [HashLength]byte
@@ -56,35 +57,38 @@ var headerSize = float64(reflect.TypeOf(Header{}).Size())
 
 // Header represents a block header in smartchain
 type Header struct {
-	Version    int        `bson: "versions"	json:"version"`
-	ParentHash Hash       `bson: "parenthash"	json:"parentHash"`
-	MerkleHash Hash       `bson:"merklehash"	json:"merkleHash"`
-	TxHash     Hash       `bson:"txhash"	json:"txHash"`
-	Height     *big.Int   `bson:"height"	json:"height"`
-	Miner      Address    `bson:"address"	json:"miner"`
-	Time       *big.Int   `bson:"time"	json:"timestamp"`
-	Difficulty *big.Int   `bson:"difficulty"	json:"difficulty"`
-	Nonce      BlockNonce `bson:"nonce"	json:"nonce"`
-	Extra      []byte     `bson :"extra"	json:"extra"`
+	Version    int        `json:"version"`
+	ParentHash []byte     `json:"parentHash"`
+	MerkleHash []byte     `json:"merkleHash"`
+	Hash       []byte     `json:"hash"`
+	TxHash     []byte     `json:"txHash"`
+	Height     *uint64    `json:"height"`
+	Miner      Address    `json:"miner"`
+	Time       *uint64    `json:"timestamp"`
+	Difficulty *uint64    `json:"difficulty"`
+	Nonce      BlockNonce `json:"nonce"`
+	Extra      []byte     `json:"extra"`
 }
 
 //Block structure of chain
 type Block struct {
-	_id          *big.Int     `bson: "_id" json:"id"`
-	Header       *Header      `bson:"header" json:"header"`
-	Transactions Transactions `bson:"transactions"	json:"transactions"`
-	Hash         Hash         `bson: "hash" json:"hash"` //Hash of Header
-	Size         float64      `bson:"size" json:"size"`  // Size of header
-	ReceiverAt   *big.Int     `bson:"received_at" json:"received_at"`
-	ReceiverFrom interface{}  `bson:"received_from"	json:"received_from"`
+	ID           uint64        `bson:"_id,omitempty"`
+	Header       *Header       `json:"header"`
+	Transactions []Transaction `json:"transactions"`
+	Hash         []byte        `json:"hash"` //Hash of Header
+	Size         float64       `json:"size"` // Size of header
+	ReceiverAt   uint64        `bson:"received_at" json:"received_at"`
+	ReceiverFrom interface{}   `json:"received_from"`
 }
 
 func (h *Header) Size() float64 {
-	return headerSize + float64(len(h.Extra)+(h.Difficulty.BitLen()+h.Height.BitLen()+h.Time.BitLen())/8)
+	uPnt := (unsafe.Sizeof(h.Difficulty) + unsafe.Sizeof(h.Height) + unsafe.Sizeof(h.Time))
+
+	return headerSize + float64(len(h.Extra)+int(uPnt))/8
 }
 
 //Hash of Header
-func (h *Header) Hash() (hash Hash) {
+func (h *Header) setHash() (hash []byte) {
 	b, err := json.Marshal(h)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
@@ -96,27 +100,39 @@ func (h *Header) Hash() (hash Hash) {
 	return hash
 }
 
+func (b *Block) setHash() {
+	hash := sha256.Sum256(b.Serialize())
+
+	b.Header.Hash = hash[:]
+	b.Hash = hash[:]
+	fmt.Println("Hash cua block la: ", b.Header.Hash)
+}
+
 //Hash of block
 // func (b *Block) Hash() (hash Hash) {
 // 	b.Hash
 
 // }
-func NewBlock(header *Header, txs Transactions) *Block {
+func NewBlock(header *Header, txs []Transaction) *Block {
 	b := &Block{Header: CopyHeader(header)}
 
 	if len(txs) == 0 {
-		b.Header.TxHash = Hash{}
+		b.Header.TxHash = []byte{}
 	} else {
 
-		b.Transactions = make(Transactions, len(txs))
+		b.Transactions = txs // = make(Transactions, len(txs))
 
 		fmt.Println()
-		b.ReceiverAt = big.NewInt(time.Now().Unix())
+		b.ReceiverAt = uint64(time.Now().Unix())
 		copy(b.Transactions, txs)
 	}
-	b._id = b.Header.Height
-	b.Hash = b.Header.Hash()
+	b.ID = *b.Header.Height
+	b.Hash = b.Header.setHash()
 	b.Size = b.Header.Size()
+	_nonce := &[]byte{5, 2, 3, 5, 6, 8, 6}
+
+	b.Header.Nonce = *_nonce
+	b.setHash()
 	return b
 
 }
@@ -125,13 +141,13 @@ func NewBlock(header *Header, txs Transactions) *Block {
 // modifying a header variable.
 func CopyHeader(h *Header) *Header {
 	cpy := *h
-	if cpy.Time = new(big.Int); h.Time != nil {
+	if cpy.Time = new(uint64); h.Time != nil {
 		cpy.Time = h.Time
 	}
-	if cpy.Difficulty = new(big.Int); h.Difficulty != nil {
+	if cpy.Difficulty = new(uint64); h.Difficulty != nil {
 		cpy.Difficulty = h.Difficulty
 	}
-	if cpy.Height = new(big.Int); h.Height != nil {
+	if cpy.Height = new(uint64); h.Height != nil {
 		cpy.Height = h.Height
 	}
 	if len(h.Extra) > 0 {
@@ -139,4 +155,50 @@ func CopyHeader(h *Header) *Header {
 		copy(cpy.Extra, h.Extra)
 	}
 	return &cpy
+}
+
+func (b *Block) Serialize() []byte {
+	data, err := json.Marshal(b)
+
+	if err != nil {
+		fmt.Printf("Marshal block fail\n")
+		os.Exit(1)
+	}
+	return data
+}
+
+func (b Block) String() string {
+	// var strBlock string
+	// strBlock += fmt.Sprintf("Prev hash: %x\n", b.Header.ParentHash)
+	// strBlock += fmt.Sprintf("Transactions: \n")
+	// for idx, tx := range b.Transactions {
+	// 	strBlock += fmt.Sprintf("  Tx[%d] : %x\n", idx, tx)
+	// }
+	// strBlock += fmt.Sprintf("Hash: %x\n", b.Header.Hash)
+	// strBlock += fmt.Sprintf("Hash Block: %x\n", b.Hash)
+	// strBlock += fmt.Sprintf("Nonce: %d\n", b.Header.Nonce)
+	// strBlock += fmt.Sprintf("Height: %d\n", *b.Header.Height)
+	// strBlock += fmt.Sprintf("Timestamp: %d\n", *b.Header.Time)
+
+	_byte, err := json.Marshal(b)
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+	fmt.Println(string(_byte))
+
+	// return strBlock
+	return string(b.Hash)
+}
+
+func DeserializeBlock(data []byte) *Block {
+	b := new(Block)
+	err := json.Unmarshal(data, b)
+
+	if err != nil {
+		fmt.Printf("Marshal block fail\n")
+		os.Exit(1)
+	}
+
+	return b
 }

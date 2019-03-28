@@ -2,7 +2,9 @@ package mongodb
 
 import (
 	"errors"
+	"fmt"
 
+	"github.com/thiepwong/smartchain/core/types"
 	"gopkg.in/mgo.v2"
 )
 
@@ -12,13 +14,19 @@ type Database struct {
 	db  *mgo.Database
 }
 
+func getSession(url string) (*mgo.Session, error) {
+	dialInfo, err := mgo.ParseURL(url)
+	s, err := mgo.DialWithInfo(dialInfo)
+	return s, err
+}
+
 //New func Create a new Database
 func New(url string, dn string) (*Database, error) {
 	if url == "" {
 		return nil, errors.New("Url of server not found")
 	}
 
-	session, err := mgo.Dial(url)
+	session, err := getSession(url)
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +43,12 @@ func (db *Database) Insert(collection string, ojb interface{}) error {
 	return nil
 }
 
-func (db *Database) Load() interface{} {
-	return db.db.C("smartchain").Find(nil)
+func (db *Database) Load() *types.Block {
+	//	blk := &types.Block{ID: 2129}
+	bl := &types.Block{}
+	db.db.C("mainchain").FindId(2129).One(bl)
+
+	fmt.Printf("Du lieu da tim thay: %s ", bl.Serialize())
+
+	return bl
 }
