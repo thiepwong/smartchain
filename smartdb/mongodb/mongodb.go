@@ -35,7 +35,8 @@ func New(url string, dn string) (*Database, error) {
 	return db, nil
 }
 
-func (db *Database) Insert(collection string, ojb interface{}) error {
+//Add function to add new document to db
+func (db *Database) Add(collection string, ojb interface{}) error {
 	err := db.db.C(collection).Insert(ojb)
 	if err != nil {
 		return err
@@ -43,10 +44,11 @@ func (db *Database) Insert(collection string, ojb interface{}) error {
 	return nil
 }
 
+//Load func
 func (db *Database) Load() *types.Block {
 	//	blk := &types.Block{ID: 2129}
 	bl := &types.Block{}
-	db.db.C("mainchain").FindId(2129).One(bl)
+	db.db.C("mainchain").FindId(23258).One(bl)
 
 	fmt.Printf("Du lieu da tim thay: %s ", bl.Serialize())
 

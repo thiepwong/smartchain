@@ -26,7 +26,7 @@ const (
 type BlockNonce []byte
 
 //Hash is encode of an object
-type Hash [HashLength]byte
+type Hash []byte
 
 //Address is wallet of smartchain
 type Address [AddressLength]byte
@@ -36,6 +36,28 @@ func EncodeNonce(i uint64) BlockNonce {
 	var n BlockNonce
 	binary.BigEndian.PutUint64(n[:], i)
 	return n
+}
+
+//EncodeHash for encoding
+func EncodeHash(i uint64) Hash {
+	var n Hash
+	binary.BigEndian.PutUint64(n[:], i)
+	return n
+}
+
+// Uint64 return integer value of block nonce
+func (h Hash) Uint64() uint64 {
+	return binary.BigEndian.Uint64(h[:])
+}
+
+//MarshalText encodes n as a hex string with 0x prefix
+func (h Hash) MarshalText() ([]byte, error) {
+	return hexutil.Bytes(h[:]).MarshalText()
+}
+
+//UnMarshalText function implements
+func (h Hash) UnMarshalText(input []byte) error {
+	return hexutil.UnmarshalFixedText("Hash", input, h[:])
 }
 
 // Uint64 return integer value of block nonce
@@ -58,10 +80,10 @@ var headerSize = float64(reflect.TypeOf(Header{}).Size())
 // Header represents a block header in smartchain
 type Header struct {
 	Version    int        `json:"version"`
-	ParentHash []byte     `json:"parentHash"`
-	MerkleHash []byte     `json:"merkleHash"`
-	Hash       []byte     `json:"hash"`
-	TxHash     []byte     `json:"txHash"`
+	ParentHash Hash       `json:"parentHash"`
+	MerkleHash Hash       `json:"merkleHash"`
+	Hash       Hash       `json:"hash"`
+	TxHash     Hash       `json:"txHash"`
 	Height     *uint64    `json:"height"`
 	Miner      Address    `json:"miner"`
 	Time       *uint64    `json:"timestamp"`
@@ -72,15 +94,16 @@ type Header struct {
 
 //Block structure of chain
 type Block struct {
-	ID           uint64        `bson:"_id,omitempty"`
+	Heigth       uint64        `bson:"_id,omitempty"`
 	Header       *Header       `json:"header"`
 	Transactions []Transaction `json:"transactions"`
-	Hash         []byte        `json:"hash"` //Hash of Header
+	Hash         Hash          `json:"hash"` //Hash of Header
 	Size         float64       `json:"size"` // Size of header
 	ReceiverAt   uint64        `bson:"received_at" json:"received_at"`
 	ReceiverFrom interface{}   `json:"received_from"`
 }
 
+//Size func to get size of header
 func (h *Header) Size() float64 {
 	uPnt := (unsafe.Sizeof(h.Difficulty) + unsafe.Sizeof(h.Height) + unsafe.Sizeof(h.Time))
 
@@ -88,7 +111,7 @@ func (h *Header) Size() float64 {
 }
 
 //Hash of Header
-func (h *Header) setHash() (hash []byte) {
+func (h *Header) setHash() (hash Hash) {
 	b, err := json.Marshal(h)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
@@ -126,7 +149,7 @@ func NewBlock(header *Header, txs []Transaction) *Block {
 		b.ReceiverAt = uint64(time.Now().Unix())
 		copy(b.Transactions, txs)
 	}
-	b.ID = *b.Header.Height
+	b.Heigth = *b.Header.Height
 	b.Hash = b.Header.setHash()
 	b.Size = b.Header.Size()
 	_nonce := &[]byte{5, 2, 3, 5, 6, 8, 6}
@@ -188,9 +211,10 @@ func (b Block) String() string {
 	fmt.Println(string(_byte))
 
 	// return strBlock
-	return string(b.Hash)
+	return string(b.Hash[:])
 }
 
+//DeserializeBlock func for de-serialize the block info
 func DeserializeBlock(data []byte) *Block {
 	b := new(Block)
 	err := json.Unmarshal(data, b)
