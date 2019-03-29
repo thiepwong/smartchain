@@ -5,31 +5,56 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"os"
+	"math/big"
 	"reflect"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/thiepwong/smartchain/core/common"
 )
 
 const (
-	// HashLength is the expected length of the hash
-	HashLength = 32
-	// AddressLength is the expected length of the address
-	AddressLength = 20
 	//NonceLength is length of nonce
 	NonceLength = 8
 )
 
 //BlockNonce is 64 bit hash
-type BlockNonce []byte
+type BlockNonce [NonceLength]byte
 
 //Hash is encode of an object
-type Hash []byte
+//type Hash [HashLength]byte
 
-//Address is wallet of smartchain
-type Address [AddressLength]byte
+var headerSize = common.StorageSize(reflect.TypeOf(Header{}).Size())
+
+type writeCounter common.StorageSize
+
+// Header represents a block header in smartchain
+type Header struct {
+	Version    int            `json:"version"`
+	ParentHash common.Hash    `json:"parentHash"`
+	MerkleHash common.Hash    `json:"merkleHash"`
+	TxHash     common.Hash    `json:"txHash"`
+	Height     *big.Int       `json:"height"`
+	Miner      common.Address `json:"miner"`
+	Time       *big.Int       `json:"timestamp"`
+	Difficulty *big.Int       `json:"difficulty"`
+	Nonce      BlockNonce     `json:"nonce"`
+	Extra      []byte         `json:"extra"`
+}
+
+//Block structure of chain
+type Block struct {
+	Heigth       uint64        `bson:"_id,omitempty"`
+	Header       *Header       `json:"header"`
+	Transactions []Transaction `json:"transactions"`
+	Hash         common.Hash   `json:"hash"` //Hash of Header
+	Size         atomic.Value  `json:"size"` // Size of header
+	ReceiverAt   uint64        `bson:"received_at" json:"received_at"`
+	ReceiverFrom interface{}   `json:"received_from"`
+}
 
 //EncodeNonce conver the given integer to hash
 func EncodeNonce(i uint64) BlockNonce {
@@ -39,26 +64,26 @@ func EncodeNonce(i uint64) BlockNonce {
 }
 
 //EncodeHash for encoding
-func EncodeHash(i uint64) Hash {
-	var n Hash
+func EncodeHash(i uint64) common.Hash {
+	var n common.Hash
 	binary.BigEndian.PutUint64(n[:], i)
 	return n
 }
 
 // Uint64 return integer value of block nonce
-func (h Hash) Uint64() uint64 {
-	return binary.BigEndian.Uint64(h[:])
-}
+// func (h common.Hash) Uint64() uint64 {
+// 	return binary.BigEndian.Uint64(h[:])
+// }
 
 //MarshalText encodes n as a hex string with 0x prefix
-func (h Hash) MarshalText() ([]byte, error) {
-	return hexutil.Bytes(h[:]).MarshalText()
-}
+// func (h Hash) MarshalText() ([]byte, error) {
+// 	return hexutil.Bytes(h[:]).MarshalText()
+// }
 
-//UnMarshalText function implements
-func (h Hash) UnMarshalText(input []byte) error {
-	return hexutil.UnmarshalFixedText("Hash", input, h[:])
-}
+// //UnMarshalText function implements
+// func (h Hash) UnMarshalText(input []byte) error {
+// 	return hexutil.UnmarshalFixedText("Hash", input, h[:])
+// }
 
 // Uint64 return integer value of block nonce
 func (n BlockNonce) Uint64() uint64 {
@@ -75,72 +100,38 @@ func (n BlockNonce) UnMarshalText(input []byte) error {
 	return hexutil.UnmarshalFixedText("BlockNonce", input, n[:])
 }
 
-var headerSize = float64(reflect.TypeOf(Header{}).Size())
-
-// Header represents a block header in smartchain
-type Header struct {
-	Version    int        `json:"version"`
-	ParentHash Hash       `json:"parentHash"`
-	MerkleHash Hash       `json:"merkleHash"`
-	Hash       Hash       `json:"hash"`
-	TxHash     Hash       `json:"txHash"`
-	Height     *uint64    `json:"height"`
-	Miner      Address    `json:"miner"`
-	Time       *uint64    `json:"timestamp"`
-	Difficulty *uint64    `json:"difficulty"`
-	Nonce      BlockNonce `json:"nonce"`
-	Extra      []byte     `json:"extra"`
-}
-
-//Block structure of chain
-type Block struct {
-	Heigth       uint64        `bson:"_id,omitempty"`
-	Header       *Header       `json:"header"`
-	Transactions []Transaction `json:"transactions"`
-	Hash         Hash          `json:"hash"` //Hash of Header
-	Size         float64       `json:"size"` // Size of header
-	ReceiverAt   uint64        `bson:"received_at" json:"received_at"`
-	ReceiverFrom interface{}   `json:"received_from"`
-}
-
 //Size func to get size of header
-func (h *Header) Size() float64 {
+func (h *Header) Size() common.StorageSize {
 	uPnt := (unsafe.Sizeof(h.Difficulty) + unsafe.Sizeof(h.Height) + unsafe.Sizeof(h.Time))
-
-	return headerSize + float64(len(h.Extra)+int(uPnt))/8
+	return headerSize + common.StorageSize(len(h.Extra)+int(uPnt))/8
 }
 
 //Hash of Header
-func (h *Header) setHash() (hash Hash) {
-	b, err := json.Marshal(h)
+func (h *Header) setHash() (hash common.Hash) {
+	_byte, err := h.Serialize()
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return hash
 	}
 	_hash := sha256.New()
-	_hash.Write(b)
+	_hash.Write(_byte)
 	_hash.Sum(hash[:0])
 	return hash
 }
 
-func (b *Block) setHash() {
-	hash := sha256.Sum256(b.Serialize())
-
-	b.Header.Hash = hash[:]
-	b.Hash = hash[:]
-	fmt.Println("Hash cua block la: ", b.Header.Hash)
+func (b *Block) setHash() error {
+	_byte, err := b.serialize()
+	hash := sha256.Sum256(_byte)
+	b.Hash = hash
+	return err
 }
 
-//Hash of block
-// func (b *Block) Hash() (hash Hash) {
-// 	b.Hash
-
-// }
+//NewBlock for blockchain
 func NewBlock(header *Header, txs []Transaction) *Block {
 	b := &Block{Header: CopyHeader(header)}
 
 	if len(txs) == 0 {
-		b.Header.TxHash = []byte{}
+		b.Header.TxHash = common.Hash{}
 	} else {
 
 		b.Transactions = txs // = make(Transactions, len(txs))
@@ -149,12 +140,12 @@ func NewBlock(header *Header, txs []Transaction) *Block {
 		b.ReceiverAt = uint64(time.Now().Unix())
 		copy(b.Transactions, txs)
 	}
-	b.Heigth = *b.Header.Height
+	b.Heigth = b.Header.Height.Uint64()
 	b.Hash = b.Header.setHash()
-	b.Size = b.Header.Size()
-	_nonce := &[]byte{5, 2, 3, 5, 6, 8, 6}
+	//	b.Size = b.Header.Size()
+	_nonce := BlockNonce{5, 2, 3, 5, 6, 8, 6}
 
-	b.Header.Nonce = *_nonce
+	b.Header.Nonce = _nonce
 	b.setHash()
 	return b
 
@@ -164,14 +155,14 @@ func NewBlock(header *Header, txs []Transaction) *Block {
 // modifying a header variable.
 func CopyHeader(h *Header) *Header {
 	cpy := *h
-	if cpy.Time = new(uint64); h.Time != nil {
-		cpy.Time = h.Time
+	if cpy.Time = new(big.Int); h.Time != nil {
+		cpy.Time.Set(h.Time)
 	}
-	if cpy.Difficulty = new(uint64); h.Difficulty != nil {
-		cpy.Difficulty = h.Difficulty
+	if cpy.Difficulty = new(big.Int); h.Difficulty != nil {
+		cpy.Difficulty.Set(h.Difficulty)
 	}
-	if cpy.Height = new(uint64); h.Height != nil {
-		cpy.Height = h.Height
+	if cpy.Height = new(big.Int); h.Height != nil {
+		cpy.Height.Set(h.Height)
 	}
 	if len(h.Extra) > 0 {
 		cpy.Extra = make([]byte, len(h.Extra))
@@ -180,16 +171,23 @@ func CopyHeader(h *Header) *Header {
 	return &cpy
 }
 
-func (b *Block) Serialize() []byte {
-	data, err := json.Marshal(b)
-
-	if err != nil {
-		fmt.Printf("Marshal block fail\n")
-		os.Exit(1)
+//Size of block
+func (b *Block) GetSize() common.StorageSize {
+	if size := b.Size.Load(); size != nil {
+		return size.(common.StorageSize)
 	}
-	return data
+	c := writeCounter(0)
+	rlp.Encode(&c, b)
+	b.Size.Store(common.StorageSize(c))
+	return common.StorageSize(c)
 }
 
+//Serialize the block
+func (b *Block) serialize() ([]byte, error) {
+	return json.Marshal(b)
+}
+
+//String convert a block to string json
 func (b Block) String() string {
 	// var strBlock string
 	// strBlock += fmt.Sprintf("Prev hash: %x\n", b.Header.ParentHash)
@@ -214,15 +212,39 @@ func (b Block) String() string {
 	return string(b.Hash[:])
 }
 
+func (h Header) String() string {
+	_byte, err := json.Marshal(h)
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+	fmt.Println(string(_byte))
+
+	// return strBlock
+	return string(h.TxHash[:])
+}
+
 //DeserializeBlock func for de-serialize the block info
-func DeserializeBlock(data []byte) *Block {
+func DeserializeBlock(data []byte) (*Block, error) {
 	b := new(Block)
 	err := json.Unmarshal(data, b)
+	return b, err
+}
 
-	if err != nil {
-		fmt.Printf("Marshal block fail\n")
-		os.Exit(1)
-	}
+//Serialize to serialize the header of block
+func (h *Header) Serialize() ([]byte, error) {
+	return json.Marshal(h)
 
-	return b
+}
+
+//DeserializeHeader to to deserialize the header of the header
+func DeserializeHeader(data []byte) (*Header, error) {
+	h := new(Header)
+	err := json.Unmarshal(data, h)
+	return h, err
+}
+
+func (c *writeCounter) Write(b []byte) (int, error) {
+	*c += writeCounter(len(b))
+	return len(b), nil
 }

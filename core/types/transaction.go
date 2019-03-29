@@ -2,7 +2,10 @@ package types
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"unsafe"
+
+	"github.com/thiepwong/smartchain/core/common"
 )
 
 //Transactions type
@@ -10,10 +13,10 @@ type Transactions []*Transaction
 
 //Transaction  type
 type Transaction struct {
-	Hash Hash   `json:"hash" bson:"hash"`
-	Size int    `json:"size"`
-	From []byte `json:"from"`
-	Data TxData `json:"data"`
+	Hash common.Hash `json:"hash" bson:"hash"`
+	Size int         `json:"size"`
+	From []byte      `json:"from"`
+	Data TxData      `json:"data"`
 }
 
 //TxData  for transaction
@@ -34,10 +37,29 @@ func NewTransaction(data *TxData, from []byte) (*Transaction, error) {
 	transaction := &Transaction{
 		Size: int(_size),
 		Data: *data,
-		Hash: _hash[:],
+		Hash: _hash,
 		From: from,
 	}
 
 	return transaction, nil
 
+}
+
+func (t *Transaction) setHash() error {
+	_byte, err := t.serialize()
+	hash := sha256.Sum256(_byte)
+	t.Hash = hash
+	return err
+}
+
+//SerializeTransaction	serialize the transaction
+func (t *Transaction) serialize() ([]byte, error) {
+	return json.Marshal(t)
+}
+
+//DeserializeTransaction de-serialize the transaction
+func SerializeTransaction(data []byte) (*Transaction, error) {
+	t := new(Transaction)
+	err := json.Unmarshal(data, t)
+	return t, err
 }

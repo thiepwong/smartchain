@@ -2,7 +2,6 @@ package mongodb
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/thiepwong/smartchain/core/types"
 	"gopkg.in/mgo.v2"
@@ -46,11 +45,7 @@ func (db *Database) Add(collection string, ojb interface{}) error {
 
 //Load func
 func (db *Database) Load() *types.Block {
-	//	blk := &types.Block{ID: 2129}
 	bl := &types.Block{}
 	db.db.C("mainchain").FindId(23258).One(bl)
-
-	fmt.Printf("Du lieu da tim thay: %s ", bl.Serialize())
-
 	return bl
 }

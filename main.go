@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/big"
 	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/thiepwong/smartchain/core"
+	"github.com/thiepwong/smartchain/core/common"
 	"github.com/thiepwong/smartchain/core/params"
 	"github.com/thiepwong/smartchain/core/types"
 
@@ -15,23 +17,35 @@ import (
 )
 
 func main() {
+	interval := int64(10)
+	for {
+		time := int64(time.Now().Unix())
+		if time%interval == 0 {
+			Loop()
+		}
+	}
 
-	_h := &types.Header{}
-	_dif := new(uint64)
-	_heg := new(uint64)
-	*_heg = 23258
-	*_dif = 444
-	_h.Difficulty = _dif
-	_h.Height = _heg
-	_h.ParentHash = []byte{0x05, 0x1f, 0x0f, 0x0c, 0x3b}
-	_h.Miner = types.Address{}
-	_h.Nonce = types.BlockNonce{}
-	_ti := new(uint64)
-	*_ti = uint64(time.Now().Unix())
-	fmt.Println("Thoi gian: ", *_ti)
-	_h.Time = _ti
-	_h.Version = 3
+}
+
+func Loop() {
+
+	_h := &types.Header{
+		Version:    1000,
+		Difficulty: big.NewInt(10000),
+		Extra:      []byte{0x05, 0xff, 0x35, 0x77},
+		Height:     big.NewInt(int64(time.Now().Unix())),
+		MerkleHash: common.Hash{0x33, 0xf0, 0xa5, 0x66},
+		Miner:      common.Address{0xff, 0xfa, 0xfc},
+		Nonce:      types.BlockNonce{0xfc, 0xfb, 0xfa},
+		ParentHash: common.Hash{0xcf, 0xcc, 0xca},
+		Time:       big.NewInt(int64(time.Now().Unix())),
+		TxHash:     common.Hash{0x03, 0x04, 0x10, 0x85},
+	}
+
 	//_a := [types.HashLength]byte{0x9f, 0x86, 0xd0, 0x81, 0x88, 0x4c, 0x7d, 0x65, 0x9a, 0x2f, 0xea, 0xa0, 0xc5, 0x5a, 0xd0, 0x15, 0xa3, 0xbf, 0x4f, 0x1b, 0x2b, 0x0b, 0x82, 0x2c, 0xd1, 0x5d, 0x6c, 0x15, 0xb0, 0xf0, 0x0a, 0x08}
+
+	//	ld, e := types.DeserializeHeader(_h)
+	fmt.Println()
 
 	data := &types.TxData{}
 	data.Mode = 4
@@ -62,5 +76,4 @@ func main() {
 	fmt.Println("===============")
 
 	fmt.Printf("Xem lai json: %s", string(types.ToBytes(core.GetLastBlock(db))))
-
 }
